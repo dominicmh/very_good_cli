@@ -309,6 +309,49 @@ void main() {
             expect(result, equals(ExitCode.success.code));
           }),
         );
+
+        test(
+          'unknown when non-standard license file is found',
+          withRunner((commandRunner, logger, pubUpdater, printLogs) async {
+            // For higher confidence in verification result, PANA's
+            // implementation of detectLicense is used.
+            detectLicenseOverride = null;
+
+            File(path.join(tempDirectory.path, pubspecLockBasename))
+                .writeAsStringSync(_validPubspecLockContent);
+
+            when(() => packageConfig.packages)
+                .thenReturn([veryGoodTestRunnerConfigPackage]);
+            final licenseFilePath = path.join(
+              tempDirectory.path,
+              veryGoodTestRunnerConfigPackage.name,
+              'LICENSE',
+            );
+            File(licenseFilePath).writeAsStringSync('''
+Licensed under the Apache License, Version 2.0 (the "License"); you
+may not use this file except in compliance with the License. You may
+obtain a copy of the License at''');
+
+            when(() => logger.progress(any())).thenReturn(progress);
+
+            final result = await commandRunner.run(
+              [...commandArguments, tempDirectory.path],
+            );
+
+            verify(
+              () => progress.update(
+                'Collecting licenses from 1 out of 1 package',
+              ),
+            ).called(1);
+            verify(
+              () => progress.complete(
+                '''Retrieved 1 license from 1 package of type: unknown (1).''',
+              ),
+            ).called(1);
+
+            expect(result, equals(ExitCode.success.code));
+          }),
+        );
       },
     );
 
